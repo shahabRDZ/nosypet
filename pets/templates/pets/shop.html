@@ -31,6 +31,13 @@
         </li>
         {% endfor %}
     </ul>
+
+    <ul class="stats" id="shop-stats">
+        <li><span>Hunger</span>    <strong data-bind="hunger">{{ pet.hunger }}</strong></li>
+        <li><span>Happiness</span> <strong data-bind="happiness">{{ pet.happiness }}</strong></li>
+        <li><span>Energy</span>    <strong data-bind="energy">{{ pet.energy }}</strong></li>
+    </ul>
+
     <p class="center"><a href="{% url 'pets:dashboard' %}">← Back to dashboard</a></p>
 </section>
 
@@ -42,6 +49,28 @@
 (() => {
     const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
     const balance = document.getElementById("coin-balance");
+
+    function applyState(data) {
+        balance.textContent = data.coins;
+        document.querySelectorAll("#shop-stats [data-bind]").forEach(el => {
+            const key = el.dataset.bind;
+            if (data[key] !== undefined) el.textContent = data[key];
+        });
+    }
+
+    function flashToast(text) {
+        let toast = document.querySelector(".toast");
+        if (!toast) {
+            toast = document.createElement("div");
+            toast.className = "toast";
+            document.body.appendChild(toast);
+        }
+        toast.textContent = text;
+        toast.classList.add("show");
+        clearTimeout(toast._t);
+        toast._t = setTimeout(() => toast.classList.remove("show"), 1800);
+    }
+
     document.querySelectorAll(".buy-btn").forEach(btn => {
         btn.addEventListener("click", async () => {
             btn.disabled = true;
@@ -53,10 +82,11 @@
                 });
                 const data = await res.json();
                 if (!res.ok) {
-                    alert(data.error === "insufficient_coins" ? "Not enough coins." : "Purchase failed.");
+                    flashToast(data.error === "insufficient_coins" ? "Not enough coins." : "Purchase failed.");
                     return;
                 }
-                balance.textContent = data.coins;
+                applyState(data);
+                flashToast(`-${btn.dataset.cost} 🪙 · stats restored`);
             } finally {
                 btn.disabled = false;
             }

@@ -15,6 +15,24 @@
     let lastState = null;
     let animLock = false;
 
+    /* Mouth path strings keyed by expression. Applied via setAttribute
+       so we do not depend on CSS support for the SVG `d` property. */
+    const MOUTH_PATHS = {
+        happy:  "M 95 178 Q 110 192 125 178",
+        sad:    "M 95 188 Q 110 178 125 188",
+        hungry: "M 95 184 Q 110 174 125 184",
+        sleep:  "M 100 184 Q 110 188 120 184",
+    };
+    const mouth = creature.querySelector(".mouth");
+    const eyes = creature.querySelectorAll(".eye");
+
+    function setMouth(key) {
+        if (mouth && MOUTH_PATHS[key]) mouth.setAttribute("d", MOUTH_PATHS[key]);
+    }
+    function setEyeRy(value) {
+        eyes.forEach(e => e.setAttribute("ry", value));
+    }
+
     /* ---------- One-time scene setup ---------- */
     function spawnStars(count = 40) {
         for (let i = 0; i < count; i++) {
@@ -50,10 +68,25 @@
 
     function setMood(state) {
         creature.classList.remove("mood-hungry", "mood-sad", "mood-sleepy");
-        if (!state.is_alive) return;
-        if (state.energy < 25) creature.classList.add("mood-sleepy");
-        else if (state.hunger < 25) creature.classList.add("mood-hungry");
-        else if (state.happiness < 25) creature.classList.add("mood-sad");
+        // Reset eye height to default before re-applying mood.
+        setEyeRy(14);
+        if (!state.is_alive) {
+            setMouth("sad");
+            return;
+        }
+        if (state.energy < 25) {
+            creature.classList.add("mood-sleepy");
+            setMouth("happy");
+        } else if (state.hunger < 25) {
+            creature.classList.add("mood-hungry");
+            setMouth("hungry");
+        } else if (state.happiness < 25) {
+            creature.classList.add("mood-sad");
+            setMouth("sad");
+            setEyeRy(10);
+        } else {
+            setMouth("happy");
+        }
     }
 
     function setTimeOfDay(state) {
@@ -66,7 +99,7 @@
     function playActionAnim(name) {
         if (animLock) return;
         creature.classList.remove("eating", "playing", "sleeping");
-        // Force reflow so re-adding a class restarts animation
+        // Force reflow so re-adding a class restarts the animation.
         void creature.offsetWidth;
         animLock = true;
         if (name === "feed") {
@@ -77,11 +110,13 @@
             spawnParticle("❤️", "heart", 5);
         } else if (name === "sleep") {
             creature.classList.add("sleeping");
+            setMouth("sleep");
             spawnParticle("Z", "zzz", 4);
         }
         setTimeout(() => {
-            creature.classList.remove("eating", "playing");
-            // keep .sleeping for a beat longer for visual rest
+            creature.classList.remove("eating", "playing", "sleeping");
+            // After sleeping ends, restore mouth based on current mood.
+            if (lastState) setMood(lastState);
             animLock = false;
         }, 1700);
     }

@@ -95,19 +95,25 @@ class Pet(models.Model):
     def apply_decay(self, save=True):
         """Drop stats based on minutes elapsed since the last decay tick.
 
-        We compute on read instead of running a background job, so the
-        pet ages naturally even when no one is watching.
+        Uses floor so frequent polls do not silently round fractional
+        decay to zero. Only advances ``last_decay_at`` when a stat
+        actually changed; otherwise the elapsed time accumulates until
+        the decay reaches a whole point.
         """
         now = timezone.now()
         elapsed_minutes = (now - self.last_decay_at).total_seconds() / 60
         if elapsed_minutes <= 0:
             return
 
+        any_changed = False
         for stat, rate in DECAY_PER_MINUTE.items():
             current = getattr(self, stat)
-            decayed = max(0, int(round(current - rate * elapsed_minutes)))
-            setattr(self, stat, decayed)
+            decayed = max(0, int(current - rate * elapsed_minutes))
+            if decayed != current:
+                setattr(self, stat, decayed)
+                any_changed = True
 
-        self.last_decay_at = now
-        if save:
-            self.save()
+        if any_changed:
+            self.last_decay_at = now
+            if save:
+                self.save()

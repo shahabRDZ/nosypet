@@ -147,6 +147,7 @@
     z-index: 2;
 }
 .creature {
+    --stage-scale: 1;
     width: 100%;
     height: 100%;
     overflow: visible;
@@ -154,10 +155,12 @@
     animation: breathe 3.4s ease-in-out infinite;
 }
 
-/* Stage scaling */
-.creature.baby   { transform: scale(0.78); }
-.creature.teen   { transform: scale(0.92); }
-.creature.adult  { transform: scale(1.0); }
+/* Stage scaling: applied via CSS variable so the breathe keyframe can
+   compose with it instead of overriding it. */
+.creature.egg    { --stage-scale: 0.95; }
+.creature.baby   { --stage-scale: 0.78; }
+.creature.teen   { --stage-scale: 0.92; }
+.creature.adult  { --stage-scale: 1.0; }
 
 /* === Egg / body visibility === */
 .creature .egg-group { display: none; }
@@ -180,8 +183,8 @@
 
 /* === Body breathing / idle === */
 @keyframes breathe {
-    0%, 100% { transform: translateX(-50%) translateY(0) scale(1); }
-    50%      { transform: translateX(-50%) translateY(-3px) scale(1.015); }
+    0%, 100% { transform: translateY(0) scale(var(--stage-scale)); }
+    50%      { transform: translateY(-3px) scale(calc(var(--stage-scale) * 1.015)); }
 }
 .creature-stage { animation: groundBob 3.4s ease-in-out infinite; }
 @keyframes groundBob {
@@ -224,17 +227,27 @@
 
 /* ===========================================================
    STATE: feeding
+   transform-box: fill-box on SVG children pins the transform origin
+   to the element's own bounding box (default is the SVG viewport).
    =========================================================== */
-.creature.eating .body { animation: chompBody 0.5s ease-in-out 3; }
-.creature.eating .mouth { animation: chompMouth 0.5s ease-in-out 3; }
+.creature.eating .body {
+    animation: chompBody 0.5s ease-in-out 3;
+    transform-origin: center;
+    transform-box: fill-box;
+}
+.creature.eating .mouth {
+    animation: chompMouth 0.5s ease-in-out 3;
+    transform-origin: center;
+    transform-box: fill-box;
+}
 .creature.eating .tongue { animation: tongueWag 0.5s ease-in-out 3; }
 @keyframes chompBody {
     0%, 100% { transform: scaleY(1) scaleX(1); }
     50%      { transform: scaleY(0.93) scaleX(1.05); }
 }
 @keyframes chompMouth {
-    0%, 100% { d: path("M 95 178 Q 110 192 125 178"); }
-    50%      { d: path("M 90 178 Q 110 200 130 178"); }
+    0%, 100% { transform: scaleY(1)   scaleX(1); }
+    50%      { transform: scaleY(2.4) scaleX(1.15); }
 }
 @keyframes tongueWag {
     0%, 100% { opacity: 0; transform: translateY(0); }
@@ -263,16 +276,13 @@
 .creature.sleeping .lid { animation: none; stroke-dashoffset: 0; }
 .creature.sleeping .eye { opacity: 0; }
 .creature.sleeping .sparkle { opacity: 0; }
-.creature.sleeping .mouth { d: path("M 100 184 Q 110 188 120 184"); }
 
 /* ===========================================================
-   MOOD overlays (long-term, switch when stats are low)
+   MOOD overlays (mouth shape is swapped by JS via setAttribute,
+   so this stays browser-agnostic). Only opacity / dash tweaks here.
    =========================================================== */
-.creature.mood-hungry .mouth { d: path("M 95 184 Q 110 174 125 184"); }
 .creature.mood-hungry .cheek { opacity: 0.3; }
-.creature.mood-sad   .mouth { d: path("M 95 188 Q 110 178 125 188"); }
-.creature.mood-sad   .eye   { ry: 10; }
-.creature.mood-sleepy .lid  { stroke-dashoffset: 11 !important; animation: none; }
+.creature.mood-sleepy .lid   { stroke-dashoffset: 11 !important; animation: none; }
 
 /* ===========================================================
    Particles (hearts, crumbs, zzz, sparkles)
