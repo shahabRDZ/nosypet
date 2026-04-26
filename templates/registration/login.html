@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Log in · NosyPet{% endblock %}
+
+{% block content %}
+<section class="card narrow">
+    <h1>Welcome back</h1>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        <label>
+            Username
+            {{ form.username }}
+            {{ form.username.errors }}
+        </label>
+        <label>
+            Password
+            {{ form.password }}
+            {{ form.password.errors }}
+        </label>
+        <button type="submit" class="primary block">Log in</button>
+    </form>
+    <p class="muted center">No account? <a href="{% url 'accounts:signup' %}">Sign up</a></p>
+</section>
+{% endblock %}
