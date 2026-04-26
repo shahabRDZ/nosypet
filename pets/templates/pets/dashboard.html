@@ -3,25 +3,44 @@
 
 {% block title %}{{ pet.name }} · NosyPet{% endblock %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'pets/css/scene.css' %}">
+{% endblock %}
+
 {% block content %}
 <section class="card dashboard" data-state-url="{% url 'pets:api_state' %}">
     <header class="dashboard-head">
         <div>
             <h1 data-bind="name">{{ pet.name }}</h1>
             <span class="muted">
-                Stage: <span data-bind="stage">baby</span> ·
-                Level <span data-bind="level">1</span>
+                Stage: <span data-bind="stage">{{ pet.stage }}</span> ·
+                Level <span data-bind="level">{{ pet.level }}</span>
             </span>
         </div>
         <div class="coin-pill">
-            <span>🪙</span> <strong data-bind="coins">0</strong>
+            <span>🪙</span> <strong data-bind="coins">{{ pet.coins }}</strong>
         </div>
     </header>
 
-    <div class="pet-stage">
-        <div class="pet-bob big" data-bind-sprite>🐥</div>
-        <div class="status-msg muted" data-bind="status">Doing fine.</div>
+    <div class="scene" id="scene" data-stage="{{ pet.stage }}">
+        <div class="sun"></div>
+        <div class="stars" id="stars"></div>
+        <div class="cloud cloud-1"></div>
+        <div class="cloud cloud-2"></div>
+        <div class="cloud cloud-3"></div>
+        <div class="hills">
+            <div class="hill hill-back"></div>
+            <div class="hill hill-mid"></div>
+            <div class="hill hill-front"></div>
+        </div>
+        <div class="ground"></div>
+        <div class="creature-stage">
+            {% include "pets/_creature.html" with pet=pet %}
+        </div>
+        <div class="particles" id="particles"></div>
     </div>
+
+    <div class="status-msg muted center" data-bind="status">Doing fine.</div>
 
     <ul class="stats">
         <li>
@@ -42,14 +61,14 @@
         <li class="xp-row">
             <span>XP</span>
             <div class="bar"><div class="bar-fill xp" data-bar="xp" style="width: 0%"></div></div>
-            <strong><span data-bind="xp">0</span>/<span data-bind="xp_to_next">100</span></strong>
+            <strong><span data-bind="xp">{{ pet.xp }}</span>/<span data-bind="xp_to_next">{{ pet.xp_to_next_level }}</span></strong>
         </li>
     </ul>
 
     <div class="actions">
-        <button class="action-btn" data-action="{% url 'pets:api_feed' %}">🍔<span>Feed</span></button>
-        <button class="action-btn" data-action="{% url 'pets:api_play' %}">🎾<span>Play</span></button>
-        <button class="action-btn" data-action="{% url 'pets:api_sleep' %}">💤<span>Sleep</span></button>
+        <button class="action-btn" data-action="{% url 'pets:api_feed' %}" data-action-name="feed">🍔<span>Feed</span></button>
+        <button class="action-btn" data-action="{% url 'pets:api_play' %}" data-action-name="play">🎾<span>Play</span></button>
+        <button class="action-btn" data-action="{% url 'pets:api_sleep' %}" data-action-name="sleep">💤<span>Sleep</span></button>
     </div>
 </section>
 

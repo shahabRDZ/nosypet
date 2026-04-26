@@ -1,0 +1,331 @@
+/* ===========================================================
+   NosyPet scene + creature
+   - Layered SVG background scene with parallax-like animation
+   - Inline SVG character with classed parts for state-driven anim
+   =========================================================== */
+
+.scene {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 11;
+    border-radius: 18px;
+    overflow: hidden;
+    background:
+        linear-gradient(180deg, #ffd6f0 0%, #ffb4d8 35%, #ffe1b8 75%, #ffeec9 100%);
+    box-shadow: inset 0 -40px 60px rgba(0, 0, 0, 0.08);
+    transition: background 1.2s ease;
+}
+
+/* Time-of-day moods (toggled via JS or stage). */
+.scene.dusk {
+    background: linear-gradient(180deg, #6b5b95 0%, #d88aa8 50%, #ffb88a 100%);
+}
+.scene.night {
+    background: linear-gradient(180deg, #1a1b4b 0%, #3a2a6e 50%, #5a3a7e 100%);
+}
+
+/* === Sun === */
+.sun {
+    position: absolute;
+    top: 12%;
+    right: 15%;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #fff7c4, #ffd84a 60%, #ffae3a);
+    box-shadow: 0 0 40px rgba(255, 200, 80, 0.55);
+    animation: sunPulse 4s ease-in-out infinite;
+}
+@keyframes sunPulse {
+    0%, 100% { box-shadow: 0 0 40px rgba(255, 200, 80, 0.55); }
+    50%      { box-shadow: 0 0 60px rgba(255, 200, 80, 0.8); }
+}
+.scene.night .sun {
+    background: radial-gradient(circle at 35% 35%, #fff, #ddd 60%, #aaa);
+    box-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
+}
+
+/* === Stars (only at night) === */
+.stars {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.8s ease;
+}
+.scene.night .stars { opacity: 1; }
+.star {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 4px #fff;
+    animation: twinkle 3s ease-in-out infinite;
+}
+
+@keyframes twinkle {
+    0%, 100% { opacity: 0.3; transform: scale(0.7); }
+    50% { opacity: 1; transform: scale(1.1); }
+}
+
+/* === Clouds === */
+.cloud {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: 50%;
+    filter: blur(0.4px);
+    animation: drift 30s linear infinite;
+}
+.cloud::before, .cloud::after {
+    content: "";
+    position: absolute;
+    background: inherit;
+    border-radius: 50%;
+}
+.cloud-1 { top: 18%; left: -10%; width: 70px; height: 22px; animation-duration: 36s; }
+.cloud-1::before { width: 30px; height: 30px; top: -14px; left: 14px; }
+.cloud-1::after  { width: 22px; height: 22px; top: -8px;  left: 40px; }
+.cloud-2 { top: 8%;  left: -25%; width: 50px; height: 16px; animation-duration: 48s; }
+.cloud-2::before { width: 22px; height: 22px; top: -10px; left: 8px; }
+.cloud-3 { top: 30%; left: -15%; width: 90px; height: 28px; animation-duration: 60s; opacity: 0.7; }
+.cloud-3::before { width: 36px; height: 36px; top: -16px; left: 16px; }
+.cloud-3::after  { width: 26px; height: 26px; top: -10px; left: 56px; }
+
+@keyframes drift {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(140vw); }
+}
+
+/* === Hills === */
+.hills {
+    position: absolute;
+    bottom: 0;
+    left: -10%;
+    right: -10%;
+    height: 45%;
+    pointer-events: none;
+}
+.hill {
+    position: absolute;
+    bottom: 0;
+    border-radius: 50% 50% 0 0;
+}
+.hill-back  { left: 0;   right: 30%; height: 70%;  background: linear-gradient(180deg, #b6e3a4, #82c373); opacity: 0.85; }
+.hill-mid   { left: 25%; right: 0;   height: 85%;  background: linear-gradient(180deg, #9fd58c, #69b35d); opacity: 0.92; }
+.hill-front { left: -10%; right: 50%; height: 55%; background: linear-gradient(180deg, #8fce7c, #5aa54d); }
+
+/* === Ground === */
+.ground {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 22%;
+    background:
+        repeating-linear-gradient(
+            90deg,
+            transparent 0,
+            transparent 6px,
+            rgba(0, 0, 0, 0.05) 6px,
+            rgba(0, 0, 0, 0.05) 7px
+        ),
+        linear-gradient(180deg, #7cc26a 0%, #468d3d 100%);
+}
+
+/* === Creature stage === */
+.creature-stage {
+    position: absolute;
+    left: 50%;
+    bottom: 12%;
+    transform: translateX(-50%);
+    width: 200px;
+    height: 230px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 2;
+}
+.creature {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    transform-origin: 50% 95%;
+    animation: breathe 3.4s ease-in-out infinite;
+}
+
+/* Stage scaling */
+.creature.baby   { transform: scale(0.78); }
+.creature.teen   { transform: scale(0.92); }
+.creature.adult  { transform: scale(1.0); }
+
+/* === Egg / body visibility === */
+.creature .egg-group { display: none; }
+.creature .body-group { display: block; }
+.creature.egg .egg-group { display: block; }
+.creature.egg .body-group { display: none; }
+.creature .crown { display: none; }
+.creature.adult .crown { display: block; }
+
+/* Egg cracks reveal more with hatching state */
+.creature .egg-crack { stroke-dasharray: 80; stroke-dashoffset: 80; transition: stroke-dashoffset 0.6s ease; }
+.creature.egg.cracking .egg-crack { stroke-dashoffset: 0; }
+.creature.egg.shake .egg { animation: eggShake 0.4s ease infinite; }
+
+@keyframes eggShake {
+    0%, 100% { transform: rotate(0deg); }
+    25%      { transform: rotate(-3deg); }
+    75%      { transform: rotate(3deg); }
+}
+
+/* === Body breathing / idle === */
+@keyframes breathe {
+    0%, 100% { transform: translateX(-50%) translateY(0) scale(1); }
+    50%      { transform: translateX(-50%) translateY(-3px) scale(1.015); }
+}
+.creature-stage { animation: groundBob 3.4s ease-in-out infinite; }
+@keyframes groundBob {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50%      { transform: translateX(-50%) translateY(-4px); }
+}
+
+/* === Antenna gentle sway === */
+.antenna { transform-origin: 110px 70px; animation: sway 4s ease-in-out infinite; }
+@keyframes sway {
+    0%, 100% { transform: rotate(-3deg); }
+    50%      { transform: rotate(3deg); }
+}
+.antenna-tip { animation: tipGlow 1.6s ease-in-out infinite; }
+@keyframes tipGlow {
+    0%, 100% { filter: drop-shadow(0 0 2px #ffd84a); }
+    50%      { filter: drop-shadow(0 0 8px #ffd84a); }
+}
+
+/* === Blink === */
+.lid {
+    stroke-dasharray: 22;
+    stroke-dashoffset: 22;
+    animation: blink 4.5s ease-in-out infinite;
+}
+@keyframes blink {
+    0%, 92%, 100% { stroke-dashoffset: 22; }
+    95%, 97%      { stroke-dashoffset: 0; }
+}
+
+/* === Tongue hidden by default === */
+.tongue { opacity: 0; transform-origin: 50% 50%; }
+
+/* === Feet wiggle === */
+.foot { transform-origin: 50% 100%; }
+.foot-l { animation: footL 2.6s ease-in-out infinite; }
+.foot-r { animation: footR 2.6s ease-in-out infinite; }
+@keyframes footL { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+@keyframes footR { 0%, 100% { transform: rotate(3deg); }  50% { transform: rotate(-3deg); } }
+
+/* ===========================================================
+   STATE: feeding
+   =========================================================== */
+.creature.eating .body { animation: chompBody 0.5s ease-in-out 3; }
+.creature.eating .mouth { animation: chompMouth 0.5s ease-in-out 3; }
+.creature.eating .tongue { animation: tongueWag 0.5s ease-in-out 3; }
+@keyframes chompBody {
+    0%, 100% { transform: scaleY(1) scaleX(1); }
+    50%      { transform: scaleY(0.93) scaleX(1.05); }
+}
+@keyframes chompMouth {
+    0%, 100% { d: path("M 95 178 Q 110 192 125 178"); }
+    50%      { d: path("M 90 178 Q 110 200 130 178"); }
+}
+@keyframes tongueWag {
+    0%, 100% { opacity: 0; transform: translateY(0); }
+    50%      { opacity: 1; transform: translateY(2px); }
+}
+
+/* ===========================================================
+   STATE: playing (jump + spin)
+   =========================================================== */
+.creature.playing { animation: hop 0.55s ease-out 2; }
+@keyframes hop {
+    0%   { transform: translateY(0)   rotate(0deg)  scale(1); }
+    25%  { transform: translateY(-30px) rotate(-8deg) scale(1.03, 0.97); }
+    55%  { transform: translateY(-46px) rotate(8deg)  scale(0.97, 1.05); }
+    100% { transform: translateY(0)   rotate(0deg)  scale(1.05, 0.95); }
+}
+
+/* ===========================================================
+   STATE: sleeping (eyes shut, slow breath)
+   =========================================================== */
+.creature.sleeping { animation: bigBreath 4s ease-in-out infinite; }
+@keyframes bigBreath {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50%      { transform: translateY(-2px) scale(1.04, 0.98); }
+}
+.creature.sleeping .lid { animation: none; stroke-dashoffset: 0; }
+.creature.sleeping .eye { opacity: 0; }
+.creature.sleeping .sparkle { opacity: 0; }
+.creature.sleeping .mouth { d: path("M 100 184 Q 110 188 120 184"); }
+
+/* ===========================================================
+   MOOD overlays (long-term, switch when stats are low)
+   =========================================================== */
+.creature.mood-hungry .mouth { d: path("M 95 184 Q 110 174 125 184"); }
+.creature.mood-hungry .cheek { opacity: 0.3; }
+.creature.mood-sad   .mouth { d: path("M 95 188 Q 110 178 125 188"); }
+.creature.mood-sad   .eye   { ry: 10; }
+.creature.mood-sleepy .lid  { stroke-dashoffset: 11 !important; animation: none; }
+
+/* ===========================================================
+   Particles (hearts, crumbs, zzz, sparkles)
+   =========================================================== */
+.particles {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 3;
+}
+.particle {
+    position: absolute;
+    bottom: 30%;
+    left: 50%;
+    font-size: 1.4rem;
+    transform: translateX(-50%);
+    opacity: 0;
+    animation: float 1.4s ease-out forwards;
+    user-select: none;
+}
+.particle.heart { color: #ff5599; }
+.particle.zzz   { color: #c0c5ff; font-style: italic; font-weight: 700; }
+.particle.crumb { font-size: 1.1rem; }
+.particle.spark { font-size: 1.8rem; }
+
+@keyframes float {
+    0%   { opacity: 0; transform: translate(var(--dx, 0px), 0) scale(0.4); }
+    20%  { opacity: 1; }
+    100% { opacity: 0; transform: translate(var(--dx, 0px), -90px) scale(1.1); }
+}
+
+/* === Hatch flash on level 2 === */
+.scene.hatch-flash::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle, rgba(255,255,255,0.9), transparent 70%);
+    animation: hatchFlash 0.8s ease forwards;
+    z-index: 4;
+    pointer-events: none;
+}
+@keyframes hatchFlash {
+    0%   { opacity: 0; }
+    30%  { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* === Reduced motion === */
+@media (prefers-reduced-motion: reduce) {
+    .creature, .creature-stage, .antenna, .foot-l, .foot-r,
+    .cloud, .lid, .sun { animation: none !important; }
+}
+
+@media (max-width: 480px) {
+    .creature-stage { width: 160px; height: 190px; bottom: 14%; }
+}
