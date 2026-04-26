@@ -10,5 +10,7 @@ def home(request):
 
 @login_required
 def dashboard(request):
-    pet = request.user.pet
+    from .services import PetService
+
+    pet = PetService.refresh(request.user.pet)
     return render(request, "pets/dashboard.html", {"pet": pet})

@@ -26,7 +26,8 @@ def serialize_pet(pet: Pet) -> dict:
 @login_required
 @require_GET
 def state(request):
-    return JsonResponse(serialize_pet(request.user.pet))
+    pet = PetService.refresh(request.user.pet)
+    return JsonResponse(serialize_pet(pet))
 
 
 @login_required
