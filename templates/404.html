@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Not found · NosyPet{% endblock %}
+
+{% block content %}
+<section class="card narrow center">
+    <div class="big-emoji">🥚</div>
+    <h1>Nothing here</h1>
+    <p class="muted">The page you tried to reach has wandered off.</p>
+    <a href="{% url 'pets:home' %}" class="primary block">Back home</a>
+</section>
+{% endblock %}

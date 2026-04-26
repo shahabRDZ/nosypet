@@ -8,21 +8,30 @@
 {% endblock %}
 
 {% block content %}
-<section class="card dashboard" data-state-url="{% url 'pets:api_state' %}">
+<section class="card dashboard"
+         data-state-url="{% url 'pets:api_state' %}"
+         data-rename-url="{% url 'pets:api_rename' %}"
+         data-heal-url="{% url 'pets:api_heal' %}">
     <header class="dashboard-head">
         <div>
-            <h1 data-bind="name">{{ pet.name }}</h1>
+            <h1>
+                <button class="name-edit" type="button" aria-label="Rename pet">
+                    <span data-bind="name">{{ pet.name }}</span>
+                    <span class="edit-icon" aria-hidden="true">✎</span>
+                </button>
+            </h1>
             <span class="muted">
                 Stage: <span data-bind="stage">{{ pet.stage }}</span> ·
                 Level <span data-bind="level">{{ pet.level }}</span>
             </span>
         </div>
-        <div class="coin-pill">
-            <span>🪙</span> <strong data-bind="coins">{{ pet.coins }}</strong>
+        <div class="coin-pill" title="Coins (used to heal your pet)">
+            <span aria-hidden="true">🪙</span>
+            <strong data-bind="coins">{{ pet.coins }}</strong>
         </div>
     </header>
 
-    <div class="scene" id="scene" data-stage="{{ pet.stage }}">
+    <div class="scene" id="scene" data-stage="{{ pet.stage }}" aria-hidden="true">
         <div class="sun"></div>
         <div class="stars" id="stars"></div>
         <div class="cloud cloud-1"></div>
@@ -40,7 +49,7 @@
         <div class="particles" id="particles"></div>
     </div>
 
-    <div class="status-msg muted center" data-bind="status">Doing fine.</div>
+    <div class="status-msg muted center" data-bind="status" role="status">Doing fine.</div>
 
     <ul class="stats">
         <li>
@@ -66,11 +75,28 @@
     </ul>
 
     <div class="actions">
-        <button class="action-btn" data-action="{% url 'pets:api_feed' %}" data-action-name="feed">🍔<span>Feed</span></button>
-        <button class="action-btn" data-action="{% url 'pets:api_play' %}" data-action-name="play">🎾<span>Play</span></button>
-        <button class="action-btn" data-action="{% url 'pets:api_sleep' %}" data-action-name="sleep">💤<span>Sleep</span></button>
+        <button class="action-btn" data-action="{% url 'pets:api_feed' %}" data-action-name="feed" aria-label="Feed your pet">🍔<span>Feed</span></button>
+        <button class="action-btn" data-action="{% url 'pets:api_play' %}" data-action-name="play" aria-label="Play with your pet">🎾<span>Play</span></button>
+        <button class="action-btn" data-action="{% url 'pets:api_sleep' %}" data-action-name="sleep" aria-label="Let your pet sleep">💤<span>Sleep</span></button>
     </div>
+
+    <button class="heal-btn" id="heal-btn" hidden aria-label="Revive your pet">
+        ✨ Heal · 🪙 <span data-bind="heal_cost">20</span>
+    </button>
 </section>
+
+<dialog class="rename-dialog" id="rename-dialog" aria-label="Rename your pet">
+    <form method="dialog" id="rename-form">
+        <label>
+            New name
+            <input type="text" id="rename-input" maxlength="30" required minlength="1">
+        </label>
+        <div class="dialog-buttons">
+            <button type="button" value="cancel" class="secondary" id="rename-cancel">Cancel</button>
+            <button type="submit" class="primary">Save</button>
+        </div>
+    </form>
+</dialog>
 
 {% csrf_token %}
 {% endblock %}

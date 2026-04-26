@@ -11,4 +11,6 @@ urlpatterns = [
     path("api/pet/feed/", api.feed, name="api_feed"),
     path("api/pet/play/", api.play, name="api_play"),
     path("api/pet/sleep/", api.sleep, name="api_sleep"),
+    path("api/pet/heal/", api.heal, name="api_heal"),
+    path("api/pet/rename/", api.rename, name="api_rename"),
 ]

@@ -5,15 +5,20 @@
     if (!dashboard) return;
 
     const stateUrl = dashboard.dataset.stateUrl;
+    const renameUrl = dashboard.dataset.renameUrl;
+    const healUrl = dashboard.dataset.healUrl;
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
     const scene = document.getElementById("scene");
     const creature = scene.querySelector(".creature");
     const particles = document.getElementById("particles");
     const stars = document.getElementById("stars");
+    const healBtn = document.getElementById("heal-btn");
 
     let lastState = null;
     let animLock = false;
+    let pollTimer = null;
+    const POLL_MS = 7000;
 
     /* Mouth path strings keyed by expression. Applied via setAttribute
        so we do not depend on CSS support for the SVG `d` property. */
@@ -68,7 +73,6 @@
 
     function setMood(state) {
         creature.classList.remove("mood-hungry", "mood-sad", "mood-sleepy");
-        // Reset eye height to default before re-applying mood.
         setEyeRy(14);
         if (!state.is_alive) {
             setMouth("sad");
@@ -89,7 +93,7 @@
         }
     }
 
-    function setTimeOfDay(state) {
+    function setTimeOfDay() {
         scene.classList.remove("dusk", "night");
         const hour = new Date().getHours();
         if (hour >= 20 || hour < 6) scene.classList.add("night");
@@ -99,7 +103,6 @@
     function playActionAnim(name) {
         if (animLock) return;
         creature.classList.remove("eating", "playing", "sleeping");
-        // Force reflow so re-adding a class restarts the animation.
         void creature.offsetWidth;
         animLock = true;
         if (name === "feed") {
@@ -112,17 +115,18 @@
             creature.classList.add("sleeping");
             setMouth("sleep");
             spawnParticle("Z", "zzz", 4);
+        } else if (name === "heal") {
+            spawnParticle("✨", "spark", 8);
         }
         setTimeout(() => {
             creature.classList.remove("eating", "playing", "sleeping");
-            // After sleeping ends, restore mouth based on current mood.
             if (lastState) setMood(lastState);
             animLock = false;
         }, 1700);
     }
 
     function statusMessage(state) {
-        if (!state.is_alive) return "Your pet has fainted. Be more attentive next time.";
+        if (!state.is_alive) return "Your pet has fainted. Heal it to bring it back.";
         if (state.hunger < 20) return "Starving! Feed me!";
         if (state.energy < 20) return "So sleepy...";
         if (state.happiness < 20) return "Bored. Let's play!";
@@ -130,7 +134,7 @@
         return "Doing fine.";
     }
 
-    function showToast(text) {
+    function showToast(text, duration = 1800) {
         let toast = document.querySelector(".toast");
         if (!toast) {
             toast = document.createElement("div");
@@ -140,13 +144,16 @@
         toast.textContent = text;
         toast.classList.add("show");
         clearTimeout(toast._t);
-        toast._t = setTimeout(() => toast.classList.remove("show"), 1800);
+        toast._t = setTimeout(() => toast.classList.remove("show"), duration);
     }
 
     function diffMessage(prev, next) {
         const parts = [];
         if (next.xp > prev.xp) parts.push(`+${next.xp - prev.xp} XP`);
-        if (next.coins > prev.coins) parts.push(`+${next.coins - prev.coins} 🪙`);
+        if (next.coins !== prev.coins) {
+            const delta = next.coins - prev.coins;
+            parts.push(`${delta >= 0 ? "+" : ""}${delta} 🪙`);
+        }
         if (next.level > prev.level) parts.push(`Level up! ${next.level}`);
         if (next.stage !== prev.stage) parts.push(`Evolved → ${next.stage}!`);
         return parts.join("  ·  ");
@@ -176,7 +183,13 @@
 
         setStage(state.stage);
         setMood(state);
-        setTimeOfDay(state);
+        setTimeOfDay();
+
+        // Heal button visibility: show when fainted or any stat below 20.
+        const needsHeal = !state.is_alive
+            || state.hunger < 20 || state.happiness < 20 || state.energy < 20;
+        healBtn.hidden = !needsHeal;
+        healBtn.disabled = state.coins < state.heal_cost;
 
         document.querySelectorAll(".action-btn").forEach(btn => {
             btn.disabled = !state.is_alive;
@@ -187,6 +200,7 @@
 
     /* ---------- Network ---------- */
     async function fetchState() {
+        if (document.hidden) return;  // pause polling when tab is hidden
         try {
             const res = await fetch(stateUrl, { credentials: "same-origin" });
             if (!res.ok) return;
@@ -196,8 +210,27 @@
         }
     }
 
-    async function performAction(url, btn) {
-        const actionName = btn.dataset.actionName;
+    function startPolling() {
+        stopPolling();
+        pollTimer = setInterval(fetchState, POLL_MS);
+    }
+    function stopPolling() {
+        if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+        }
+    }
+
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+            stopPolling();
+        } else {
+            fetchState();
+            startPolling();
+        }
+    });
+
+    async function performAction(url, btn, actionName) {
         btn.classList.add("pulse");
         btn.disabled = true;
         playActionAnim(actionName);
@@ -207,13 +240,24 @@
                 credentials: "same-origin",
                 headers: { "X-CSRFToken": csrfToken },
             });
+            if (res.status === 429) {
+                showToast("Slow down a little! 🐢");
+                return;
+            }
+            if (res.status === 402) {
+                showToast("Not enough coins to heal.");
+                return;
+            }
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const next = await res.json();
             if (lastState) {
                 const msg = diffMessage(lastState, next);
-                if (msg) showToast(msg);
+                if (msg) {
+                    const isLevelUp = next.level > lastState.level || next.stage !== lastState.stage;
+                    showToast(msg, isLevelUp ? 3500 : 1800);
+                }
                 if (next.level > lastState.level) {
-                    spawnParticle("✨", "spark", 6);
+                    spawnParticle("✨", "spark", 8);
                 }
             }
             render(next);
@@ -223,15 +267,60 @@
         } finally {
             setTimeout(() => {
                 btn.classList.remove("pulse");
-                btn.disabled = false;
+                btn.disabled = !lastState || !lastState.is_alive;
             }, 350);
         }
     }
 
     document.querySelectorAll(".action-btn").forEach(btn => {
-        btn.addEventListener("click", () => performAction(btn.dataset.action, btn));
+        btn.addEventListener("click", () => performAction(btn.dataset.action, btn, btn.dataset.actionName));
     });
 
+    healBtn.addEventListener("click", () => performAction(healUrl, healBtn, "heal"));
+
+    /* ---------- Rename dialog ---------- */
+    const dialog = document.getElementById("rename-dialog");
+    const renameInput = document.getElementById("rename-input");
+    const renameCancel = document.getElementById("rename-cancel");
+
+    document.querySelector(".name-edit").addEventListener("click", () => {
+        renameInput.value = lastState ? lastState.name : "";
+        if (typeof dialog.showModal === "function") dialog.showModal();
+        renameInput.focus();
+        renameInput.select();
+    });
+    renameCancel.addEventListener("click", () => dialog.close());
+
+    document.getElementById("rename-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const name = renameInput.value.trim();
+        if (!name) return;
+        try {
+            const res = await fetch(renameUrl, {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {
+                    "X-CSRFToken": csrfToken,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ name }),
+            });
+            if (res.ok) {
+                render(await res.json());
+                dialog.close();
+                showToast("Name updated.");
+            } else if (res.status === 429) {
+                showToast("Too many rename attempts.");
+            } else {
+                showToast("Invalid name.");
+            }
+        } catch (err) {
+            console.error(err);
+            showToast("Something went wrong.");
+        }
+    });
+
+    /* ---------- Boot ---------- */
     fetchState();
-    setInterval(fetchState, 7000);
+    startPolling();
 })();

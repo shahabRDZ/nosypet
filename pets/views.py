@@ -1,6 +1,7 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 
+from .models import Pet
 from .services import PetService
 
 
@@ -12,5 +13,11 @@ def home(request):
 
 @login_required
 def dashboard(request):
-    pet = PetService.refresh(request.user.pet)
+    try:
+        pet = request.user.pet
+    except Pet.DoesNotExist:
+        # Superusers created before the auto-create signal existed end
+        # up here. Make one on demand so the dashboard always works.
+        pet = Pet.objects.create(owner=request.user)
+    pet = PetService.refresh(pet)
     return render(request, "pets/dashboard.html", {"pet": pet})
