@@ -4,7 +4,12 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
 from .models import Pet
-from .services import PetService
+from .services import (
+    InsufficientCoins,
+    PetService,
+    SHOP_ITEMS,
+    UnknownItem,
+)
 
 
 def serialize_pet(pet: Pet) -> dict:
@@ -13,11 +18,11 @@ def serialize_pet(pet: Pet) -> dict:
         "hunger": pet.hunger,
         "happiness": pet.happiness,
         "energy": pet.energy,
-        "level": getattr(pet, "level", 1),
-        "xp": getattr(pet, "xp", 0),
-        "xp_to_next": getattr(pet, "xp_to_next_level", 100),
-        "coins": getattr(pet, "coins", 0),
-        "stage": getattr(pet, "stage", "baby"),
+        "level": pet.level,
+        "xp": pet.xp,
+        "xp_to_next": pet.xp_to_next_level,
+        "coins": pet.coins,
+        "stage": pet.stage,
         "is_alive": pet.is_alive,
         "overall": pet.overall_score,
     }
@@ -48,4 +53,16 @@ def play(request):
 @require_POST
 def sleep(request):
     pet = PetService.sleep(request.user.pet)
+    return JsonResponse(serialize_pet(pet))
+
+
+@login_required
+@require_POST
+def buy(request, item_key):
+    try:
+        pet = PetService.buy(request.user.pet, item_key)
+    except UnknownItem:
+        return JsonResponse({"error": "unknown_item"}, status=400)
+    except InsufficientCoins:
+        return JsonResponse({"error": "insufficient_coins"}, status=402)
     return JsonResponse(serialize_pet(pet))

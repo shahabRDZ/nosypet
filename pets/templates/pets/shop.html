@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Shop · NosyPet{% endblock %}
+
+{% block content %}
+<section class="card">
+    <header class="dashboard-head">
+        <div>
+            <h1>Shop</h1>
+            <span class="muted">Treat your pet.</span>
+        </div>
+        <div class="coin-pill">
+            <span>🪙</span> <strong id="coin-balance">{{ pet.coins }}</strong>
+        </div>
+    </header>
+
+    <ul class="shop-grid">
+        {% for item in items %}
+        <li class="shop-item">
+            <div class="emoji">{{ item.emoji }}</div>
+            <h3>{{ item.label }}</h3>
+            <p class="muted">
+                {% for stat, delta in item.boosts.items %}
+                    +{{ delta }} {{ stat }}{% if not forloop.last %} · {% endif %}
+                {% endfor %}
+            </p>
+            <button class="primary buy-btn"
+                    data-buy-url="{% url 'pets:api_buy' item.key %}"
+                    data-cost="{{ item.cost }}">
+                Buy · 🪙 {{ item.cost }}
+            </button>
+        </li>
+        {% endfor %}
+    </ul>
+    <p class="center"><a href="{% url 'pets:dashboard' %}">← Back to dashboard</a></p>
+</section>
+
+{% csrf_token %}
+{% endblock %}
+
+{% block extra_body %}
+<script>
+(() => {
+    const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const balance = document.getElementById("coin-balance");
+    document.querySelectorAll(".buy-btn").forEach(btn => {
+        btn.addEventListener("click", async () => {
+            btn.disabled = true;
+            try {
+                const res = await fetch(btn.dataset.buyUrl, {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: { "X-CSRFToken": csrf },
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    alert(data.error === "insufficient_coins" ? "Not enough coins." : "Purchase failed.");
+                    return;
+                }
+                balance.textContent = data.coins;
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    });
+})();
+</script>
+{% endblock %}

@@ -48,6 +48,7 @@ class Pet(models.Model):
 
     level = models.PositiveSmallIntegerField(default=1)
     xp = models.PositiveIntegerField(default=0)
+    coins = models.PositiveIntegerField(default=10)
     stage = models.CharField(max_length=10, choices=STAGE_CHOICES, default=STAGE_EGG)
 
     last_decay_at = models.DateTimeField(default=timezone.now)
