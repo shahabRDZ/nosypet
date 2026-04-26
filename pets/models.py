@@ -16,6 +16,25 @@ class Pet(models.Model):
 
     STAT_MAX = 100
 
+    STAGE_EGG = "egg"
+    STAGE_BABY = "baby"
+    STAGE_TEEN = "teen"
+    STAGE_ADULT = "adult"
+    STAGE_CHOICES = [
+        (STAGE_EGG, "Egg"),
+        (STAGE_BABY, "Baby"),
+        (STAGE_TEEN, "Teen"),
+        (STAGE_ADULT, "Adult"),
+    ]
+
+    # Level threshold for moving up a life stage.
+    STAGE_THRESHOLDS = [
+        (1, STAGE_EGG),
+        (2, STAGE_BABY),
+        (5, STAGE_TEEN),
+        (10, STAGE_ADULT),
+    ]
+
     owner = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -26,6 +45,10 @@ class Pet(models.Model):
     hunger = models.PositiveSmallIntegerField(default=80)
     happiness = models.PositiveSmallIntegerField(default=80)
     energy = models.PositiveSmallIntegerField(default=80)
+
+    level = models.PositiveSmallIntegerField(default=1)
+    xp = models.PositiveIntegerField(default=0)
+    stage = models.CharField(max_length=10, choices=STAGE_CHOICES, default=STAGE_EGG)
 
     last_decay_at = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -44,6 +67,29 @@ class Pet(models.Model):
     @property
     def overall_score(self):
         return (self.hunger + self.happiness + self.energy) // 3
+
+    @property
+    def xp_to_next_level(self):
+        return 100 + (self.level - 1) * 50
+
+    def add_xp(self, amount: int):
+        """Grant XP and handle level-ups + stage transitions."""
+        self.xp += amount
+        levels_gained = 0
+        while self.xp >= self.xp_to_next_level:
+            self.xp -= self.xp_to_next_level
+            self.level += 1
+            levels_gained += 1
+        if levels_gained:
+            self._update_stage()
+        return levels_gained
+
+    def _update_stage(self):
+        new_stage = self.stage
+        for threshold, stage in self.STAGE_THRESHOLDS:
+            if self.level >= threshold:
+                new_stage = stage
+        self.stage = new_stage
 
     def apply_decay(self, save=True):
         """Drop stats based on minutes elapsed since the last decay tick.
