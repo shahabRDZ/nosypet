@@ -4,12 +4,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
 from .models import Pet
-from .services import (
-    InsufficientCoins,
-    PetService,
-    SHOP_ITEMS,
-    UnknownItem,
-)
+from .services import PetService
 
 
 def serialize_pet(pet: Pet) -> dict:
@@ -53,16 +48,4 @@ def play(request):
 @require_POST
 def sleep(request):
     pet = PetService.sleep(request.user.pet)
-    return JsonResponse(serialize_pet(pet))
-
-
-@login_required
-@require_POST
-def buy(request, item_key):
-    try:
-        pet = PetService.buy(request.user.pet, item_key)
-    except UnknownItem:
-        return JsonResponse({"error": "unknown_item"}, status=400)
-    except InsufficientCoins:
-        return JsonResponse({"error": "insufficient_coins"}, status=402)
     return JsonResponse(serialize_pet(pet))

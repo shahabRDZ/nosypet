@@ -288,24 +288,6 @@ form input:focus { outline: 2px solid var(--primary); }
     font-style: italic;
 }
 
-.shop-grid {
-    list-style: none;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 1rem;
-    margin: 1.5rem 0;
-}
-.shop-item {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid var(--card-border);
-    border-radius: 14px;
-    padding: 1.2rem;
-    text-align: center;
-}
-.shop-item .emoji { font-size: 3rem; margin-bottom: 0.5rem; }
-.shop-item h3 { margin-bottom: 0.4rem; }
-.shop-item p { margin-bottom: 1rem; font-size: 0.85rem; }
-
 @media (max-width: 480px) {
     .topbar { padding: 0.8rem 1rem; }
     .container { padding: 1rem 0.8rem 3rem; }
