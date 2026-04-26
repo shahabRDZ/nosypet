@@ -66,6 +66,8 @@
         document.querySelectorAll(".action-btn").forEach(btn => {
             btn.disabled = !state.is_alive;
         });
+
+        lastState = state;
     }
 
     async function fetchState() {
@@ -78,9 +80,44 @@
         }
     }
 
+    function playSpriteAnim(actionName) {
+        const sprite = document.querySelector("[data-bind-sprite]");
+        if (!sprite) return;
+        const klass = { feed: "eat", play: "play", sleep: "sleep" }[actionName];
+        if (!klass) return;
+        sprite.classList.remove("eat", "play", "sleep");
+        void sprite.offsetWidth;
+        sprite.classList.add(klass);
+    }
+
+    function showToast(text) {
+        let toast = document.querySelector(".toast");
+        if (!toast) {
+            toast = document.createElement("div");
+            toast.className = "toast";
+            document.body.appendChild(toast);
+        }
+        toast.textContent = text;
+        toast.classList.add("show");
+        clearTimeout(toast._t);
+        toast._t = setTimeout(() => toast.classList.remove("show"), 1800);
+    }
+
+    function diffMessage(prev, next) {
+        const parts = [];
+        if (next.xp > prev.xp) parts.push(`+${next.xp - prev.xp} XP`);
+        if (next.coins > prev.coins) parts.push(`+${next.coins - prev.coins} 🪙`);
+        if (next.level > prev.level) parts.push(`Level up! ${next.level}`);
+        return parts.join("  ·  ");
+    }
+
+    let lastState = null;
+
     async function performAction(url, btn) {
+        const actionName = btn.dataset.actionName || (url.match(/\/(feed|play|sleep)\//) || [])[1];
         btn.classList.add("pulse");
         btn.disabled = true;
+        playSpriteAnim(actionName);
         try {
             const res = await fetch(url, {
                 method: "POST",
@@ -88,9 +125,15 @@
                 headers: { "X-CSRFToken": csrfToken },
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            render(await res.json());
+            const next = await res.json();
+            if (lastState) {
+                const msg = diffMessage(lastState, next);
+                if (msg) showToast(msg);
+            }
+            render(next);
         } catch (err) {
             console.error("action failed", err);
+            showToast("Something went wrong.");
         } finally {
             setTimeout(() => {
                 btn.classList.remove("pulse");
