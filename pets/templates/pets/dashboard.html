@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ pet.name }} · NosyPet{% endblock %}
+
+{% block content %}
+<section class="card dashboard" data-state-url="{% url 'pets:api_state' %}">
+    <header class="dashboard-head">
+        <div>
+            <h1 data-bind="name">{{ pet.name }}</h1>
+            <span class="muted">
+                Stage: <span data-bind="stage">baby</span> ·
+                Level <span data-bind="level">1</span>
+            </span>
+        </div>
+        <div class="coin-pill">
+            <span>🪙</span> <strong data-bind="coins">0</strong>
+        </div>
+    </header>
+
+    <div class="pet-stage">
+        <div class="pet-bob big" data-bind-sprite>🐥</div>
+        <div class="status-msg muted" data-bind="status">Doing fine.</div>
+    </div>
+
+    <ul class="stats">
+        <li>
+            <span>Hunger</span>
+            <div class="bar"><div class="bar-fill hunger" data-bar="hunger" style="width: {{ pet.hunger }}%"></div></div>
+            <strong data-bind="hunger">{{ pet.hunger }}</strong>
+        </li>
+        <li>
+            <span>Happiness</span>
+            <div class="bar"><div class="bar-fill happy" data-bar="happiness" style="width: {{ pet.happiness }}%"></div></div>
+            <strong data-bind="happiness">{{ pet.happiness }}</strong>
+        </li>
+        <li>
+            <span>Energy</span>
+            <div class="bar"><div class="bar-fill energy" data-bar="energy" style="width: {{ pet.energy }}%"></div></div>
+            <strong data-bind="energy">{{ pet.energy }}</strong>
+        </li>
+        <li class="xp-row">
+            <span>XP</span>
+            <div class="bar"><div class="bar-fill xp" data-bar="xp" style="width: 0%"></div></div>
+            <strong><span data-bind="xp">0</span>/<span data-bind="xp_to_next">100</span></strong>
+        </li>
+    </ul>
+
+    <div class="actions">
+        <button class="action-btn" data-action="{% url 'pets:api_feed' %}">🍔<span>Feed</span></button>
+        <button class="action-btn" data-action="{% url 'pets:api_play' %}">🎾<span>Play</span></button>
+        <button class="action-btn" data-action="{% url 'pets:api_sleep' %}">💤<span>Sleep</span></button>
+    </div>
+</section>
+
+{% csrf_token %}
+{% endblock %}
+
+{% block extra_body %}
+<script src="{% static 'pets/js/dashboard.js' %}" defer></script>
+{% endblock %}
