@@ -330,6 +330,83 @@
     100% { opacity: 0; }
 }
 
+/* === Heal button === */
+.heal-btn {
+    margin-top: 1rem;
+    width: 100%;
+    background: linear-gradient(90deg, #6dd3ff, #c084fc);
+    color: #fff;
+    border: 0;
+    padding: 0.9rem 1.2rem;
+    border-radius: 14px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(192, 132, 252, 0.35);
+    animation: healPulse 1.6s ease-in-out infinite;
+}
+.heal-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    animation: none;
+}
+@keyframes healPulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 6px 20px rgba(192, 132, 252, 0.35); }
+    50%      { transform: scale(1.02); box-shadow: 0 8px 28px rgba(192, 132, 252, 0.55); }
+}
+
+/* === Name edit button === */
+.name-edit {
+    background: none;
+    border: 0;
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.name-edit .edit-icon {
+    opacity: 0.5;
+    font-size: 0.8em;
+    transition: opacity 0.15s;
+}
+.name-edit:hover .edit-icon { opacity: 1; }
+
+/* === Rename dialog === */
+.rename-dialog {
+    border: 0;
+    border-radius: 18px;
+    padding: 1.5rem;
+    background: #2a1f4a;
+    color: var(--text);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    max-width: 90vw;
+    width: 320px;
+}
+.rename-dialog::backdrop {
+    background: rgba(20, 12, 40, 0.75);
+    backdrop-filter: blur(4px);
+}
+.rename-dialog input[type="text"] {
+    display: block;
+    width: 100%;
+    padding: 0.6rem 0.8rem;
+    margin-top: 0.4rem;
+    border-radius: 10px;
+    border: 1px solid var(--card-border);
+    background: rgba(0, 0, 0, 0.3);
+    color: var(--text);
+    font: inherit;
+}
+.rename-dialog .dialog-buttons {
+    display: flex;
+    gap: 0.6rem;
+    margin-top: 1rem;
+    justify-content: flex-end;
+}
+
 /* === Reduced motion === */
 @media (prefers-reduced-motion: reduce) {
     .creature, .creature-stage, .antenna, .foot-l, .foot-r,

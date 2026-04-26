@@ -7,8 +7,9 @@ from decouple import Csv, config
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Core security settings sourced from environment variables. Sensible
-# defaults keep `runserver` working out of the box for new contributors.
+# Core security settings sourced from environment variables. The dev
+# default secret key is fine for `runserver`; in production we refuse
+# to start without an explicit override.
 SECRET_KEY = config(
     "DJANGO_SECRET_KEY",
     default="django-insecure-l788(6d91zr)*u2aar2)75+mr4^se_u_@o8gz7r)a=2&+fkag_",
@@ -25,6 +26,12 @@ CSRF_TRUSTED_ORIGINS = config(
     cast=Csv(),
 )
 
+if not DEBUG and SECRET_KEY.startswith("django-insecure-"):
+    raise RuntimeError(
+        "Refusing to run in production with the default insecure SECRET_KEY. "
+        "Set the DJANGO_SECRET_KEY environment variable."
+    )
+
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -33,6 +40,9 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+
+    # Third-party
+    "django_ratelimit",
 
     # Local apps
     "accounts",
@@ -70,8 +80,6 @@ TEMPLATES = [
 WSGI_APPLICATION = "nosypet.wsgi.application"
 
 
-# Database: defaults to SQLite, switches to whatever DATABASE_URL points
-# at when set (Postgres on Railway/Render, etc).
 DATABASES = {
     "default": dj_database_url.config(
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
@@ -93,13 +101,21 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files served by WhiteNoise in production.
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
-    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+    "staticfiles": {
+        # ManifestStaticFilesStorage needs `collectstatic` to have run,
+        # which is exactly what we want in production but not during dev
+        # / CI. Pick the right backend based on DEBUG.
+        "BACKEND": (
+            "django.contrib.staticfiles.storage.StaticFilesStorage"
+            if DEBUG else
+            "whitenoise.storage.CompressedManifestStaticFilesStorage"
+        )
+    },
 }
 
 
@@ -111,12 +127,61 @@ LOGOUT_REDIRECT_URL = "pets:home"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
+# django-ratelimit needs a cache. LocMemCache is fine for single-process
+# dev; production should use Redis or Memcached. We silence the
+# "not a shared cache" warnings so single-worker dev / CI is clean.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "nosypet-default",
+    }
+}
+SILENCED_SYSTEM_CHECKS = ["django_ratelimit.E003", "django_ratelimit.W001"]
+RATELIMIT_USE_CACHE = "default"
+
+
+# Email backend: console in dev so password-reset links print to stdout.
+# Override with SMTP env vars in production.
+EMAIL_BACKEND = config(
+    "DJANGO_EMAIL_BACKEND",
+    default="django.core.mail.backends.console.EmailBackend",
+)
+DEFAULT_FROM_EMAIL = config("DJANGO_DEFAULT_FROM_EMAIL", default="noreply@nosypet.local")
+
+
+# Structured logging: keyed JSON-ish entries that work with stdout
+# scrapers (Railway, Render, Heroku) without extra dependencies.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {
+            "format": "[{asctime}] {levelname} {name}: {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "default"},
+    },
+    "loggers": {
+        "django": {"handlers": ["console"], "level": "INFO"},
+        "pets": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "accounts": {"handlers": ["console"], "level": "INFO", "propagate": False},
+    },
+}
+
+
 # Production-only hardening.
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SECURE_REFERRER_POLICY = "same-origin"
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_BROWSER_XSS_FILTER = True
     SECURE_HSTS_SECONDS = 60 * 60 * 24 * 30
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+    X_FRAME_OPTIONS = "DENY"

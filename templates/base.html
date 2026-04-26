@@ -5,13 +5,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}NosyPet{% endblock %}</title>
+    <meta name="description" content="A virtual pet you can feed, play with, and watch grow.">
+    <meta name="theme-color" content="#ff9bc6">
+
+    {# Open Graph #}
+    <meta property="og:title" content="NosyPet">
+    <meta property="og:description" content="Hatch a virtual pet, keep it happy, watch it grow up.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="{% static 'favicon.svg' %}">
+    <meta name="twitter:card" content="summary">
+
+    <link rel="icon" type="image/svg+xml" href="{% static 'favicon.svg' %}">
     <link rel="stylesheet" href="{% static 'pets/css/app.css' %}">
     {% block extra_head %}{% endblock %}
 </head>
 <body>
     <header class="topbar">
-        <a class="brand" href="{% url 'pets:home' %}">🐣 NosyPet</a>
-        <nav>
+        <a class="brand" href="{% url 'pets:home' %}" aria-label="NosyPet home">🐣 NosyPet</a>
+        <button class="nav-toggle" aria-expanded="false" aria-controls="primary-nav" aria-label="Toggle menu">
+            <span></span><span></span><span></span>
+        </button>
+        <nav id="primary-nav">
             {% if user.is_authenticated %}
                 <a href="{% url 'pets:dashboard' %}">Dashboard</a>
                 <span class="muted">@{{ user.username }}</span>
@@ -27,7 +41,7 @@
     </header>
     <main class="container">
         {% if messages %}
-            <ul class="messages">
+            <ul class="messages" role="status">
                 {% for message in messages %}
                     <li class="{{ message.tags }}">{{ message }}</li>
                 {% endfor %}
@@ -35,6 +49,18 @@
         {% endif %}
         {% block content %}{% endblock %}
     </main>
+    <script>
+        (() => {
+            const btn = document.querySelector(".nav-toggle");
+            const nav = document.getElementById("primary-nav");
+            if (btn && nav) {
+                btn.addEventListener("click", () => {
+                    const open = nav.classList.toggle("open");
+                    btn.setAttribute("aria-expanded", open ? "true" : "false");
+                });
+            }
+        })();
+    </script>
     {% block extra_body %}{% endblock %}
 </body>
 </html>

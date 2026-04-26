@@ -19,6 +19,10 @@
         </label>
         <button type="submit" class="primary block">Log in</button>
     </form>
-    <p class="muted center">No account? <a href="{% url 'accounts:signup' %}">Sign up</a></p>
+    <p class="muted center">
+        <a href="{% url 'password_reset' %}">Forgot password?</a>
+        ·
+        No account? <a href="{% url 'accounts:signup' %}">Sign up</a>
+    </p>
 </section>
 {% endblock %}

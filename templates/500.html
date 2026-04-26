@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Something went wrong · NosyPet{% endblock %}
+
+{% block content %}
+<section class="card narrow center">
+    <div class="big-emoji">😵</div>
+    <h1>Pet went off the leash</h1>
+    <p class="muted">We hit an unexpected error. Try again in a moment.</p>
+    <a href="{% url 'pets:home' %}" class="primary block">Back home</a>
+</section>
+{% endblock %}
