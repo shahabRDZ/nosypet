@@ -10,16 +10,20 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 from django_ratelimit.decorators import ratelimit
 
-from .models import HEAL_COST, Pet
+from .models import HEAL_COST, MEDICINE_COST, Pet
 from .services import (
     InsufficientCoins,
+    InvalidColor,
     InvalidName,
+    NotSick,
     PetService,
+    TooTired,
+    list_achievements,
 )
 
 
 def serialize_pet(pet: Pet) -> dict:
-    return {
+    data = {
         "name": pet.name,
         "hunger": pet.hunger,
         "happiness": pet.happiness,
@@ -29,10 +33,22 @@ def serialize_pet(pet: Pet) -> dict:
         "xp_to_next": pet.xp_to_next_level,
         "coins": pet.coins,
         "stage": pet.stage,
+        "color": pet.color,
+        "is_sick": pet.is_sick,
         "is_alive": pet.is_alive,
         "overall": pet.overall_score,
         "heal_cost": HEAL_COST,
+        "medicine_cost": MEDICINE_COST,
     }
+    # Action endpoints stash freshly-earned achievements on the pet so
+    # the response can show them as a one-shot toast on the client.
+    new_unlocks = getattr(pet, "_new_unlocks", None)
+    if new_unlocks:
+        data["new_achievements"] = [
+            {"slug": u["slug"], "name": u["name"], "icon": u["icon"]}
+            for u in new_unlocks
+        ]
+    return data
 
 
 def _get_pet_or_404(user):
@@ -87,6 +103,54 @@ def heal(request):
     except InsufficientCoins:
         return JsonResponse({"error": "insufficient_coins"}, status=402)
     return JsonResponse(serialize_pet(pet))
+
+
+@login_required
+@require_POST
+@ratelimit(key="user", rate="20/m", method="POST", block=True)
+def fetch(request):
+    try:
+        pet = PetService.fetch(request.user)
+    except TooTired:
+        return JsonResponse({"error": "too_tired"}, status=409)
+    return JsonResponse(serialize_pet(pet))
+
+
+@login_required
+@require_POST
+@ratelimit(key="user", rate="10/m", method="POST", block=True)
+def medicine(request):
+    try:
+        pet = PetService.medicine(request.user)
+    except NotSick:
+        return JsonResponse({"error": "not_sick"}, status=409)
+    except InsufficientCoins:
+        return JsonResponse({"error": "insufficient_coins"}, status=402)
+    return JsonResponse(serialize_pet(pet))
+
+
+@login_required
+@require_POST
+@ratelimit(key="user", rate="10/m", method="POST", block=True)
+def recolor(request):
+    try:
+        payload = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "bad_json"}, status=400)
+    try:
+        pet = PetService.recolor(request.user, payload.get("color", ""))
+    except InvalidColor:
+        return JsonResponse({"error": "invalid_color"}, status=400)
+    return JsonResponse(serialize_pet(pet))
+
+
+@login_required
+@require_GET
+def achievements(request):
+    pet = _get_pet_or_404(request.user)
+    if pet is None:
+        return JsonResponse({"error": "no_pet"}, status=404)
+    return JsonResponse({"achievements": list_achievements(pet)})
 
 
 @login_required

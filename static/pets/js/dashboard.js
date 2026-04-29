@@ -7,6 +7,9 @@
     const stateUrl = dashboard.dataset.stateUrl;
     const renameUrl = dashboard.dataset.renameUrl;
     const healUrl = dashboard.dataset.healUrl;
+    const medicineUrl = dashboard.dataset.medicineUrl;
+    const recolorUrl = dashboard.dataset.recolorUrl;
+    const achievementsUrl = dashboard.dataset.achievementsUrl;
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
     const scene = document.getElementById("scene");
@@ -14,6 +17,8 @@
     const particles = document.getElementById("particles");
     const stars = document.getElementById("stars");
     const healBtn = document.getElementById("heal-btn");
+    const medicineBtn = document.getElementById("medicine-btn");
+    const achievementList = document.getElementById("achievement-list");
 
     let lastState = null;
     let animLock = false;
@@ -71,6 +76,18 @@
         creature.classList.add(stage);
     }
 
+    function setColor(color) {
+        creature.classList.remove("color-pink", "color-blue", "color-mint", "color-lavender", "color-gold");
+        creature.classList.add(`color-${color}`);
+        document.querySelectorAll(".swatch").forEach(s => {
+            s.classList.toggle("active", s.dataset.color === color);
+        });
+    }
+
+    function setSick(isSick) {
+        creature.classList.toggle("sick", !!isSick);
+    }
+
     function setMood(state) {
         creature.classList.remove("mood-hungry", "mood-sad", "mood-sleepy");
         setEyeRy(14);
@@ -117,6 +134,11 @@
             spawnParticle("Z", "zzz", 4);
         } else if (name === "heal") {
             spawnParticle("✨", "spark", 8);
+        } else if (name === "fetch") {
+            creature.classList.add("playing");
+            spawnParticle("🥏", "heart", 6);
+        } else if (name === "medicine") {
+            spawnParticle("💚", "spark", 6);
         }
         setTimeout(() => {
             creature.classList.remove("eating", "playing", "sleeping");
@@ -127,6 +149,7 @@
 
     function statusMessage(state) {
         if (!state.is_alive) return "Your pet has fainted. Heal it to bring it back.";
+        if (state.is_sick) return "Sniffles. Some medicine would help...";
         if (state.hunger < 20) return "Starving! Feed me!";
         if (state.energy < 20) return "So sleepy...";
         if (state.happiness < 20) return "Bored. Let's play!";
@@ -184,6 +207,8 @@
         setStage(state.stage);
         setMood(state);
         setTimeOfDay();
+        if (state.color) setColor(state.color);
+        setSick(state.is_sick);
 
         // Heal button visibility: show when fainted or any stat below 20.
         const needsHeal = !state.is_alive
@@ -191,9 +216,28 @@
         healBtn.hidden = !needsHeal;
         healBtn.disabled = state.coins < state.heal_cost;
 
+        // Medicine button: only when sick.
+        medicineBtn.hidden = !state.is_sick;
+        medicineBtn.disabled = state.coins < (state.medicine_cost || 8);
+
         document.querySelectorAll(".action-btn").forEach(btn => {
             btn.disabled = !state.is_alive;
         });
+
+        // Notify when stats first cross the worry threshold (browser
+        // notification, opt-in only). Compares against the previous
+        // state so we do not spam every poll.
+        maybeNotify(state);
+
+        // Pop a celebratory toast for any achievements just unlocked.
+        if (state.new_achievements && state.new_achievements.length) {
+            state.new_achievements.forEach(a => {
+                showToast(`${a.icon}  Achievement: ${a.name}`, 3500);
+                spawnParticle("🏆", "spark", 6);
+            });
+            // Re-fetch the list so the tray updates.
+            fetchAchievements();
+        }
 
         lastState = state;
     }
@@ -245,7 +289,14 @@
                 return;
             }
             if (res.status === 402) {
-                showToast("Not enough coins to heal.");
+                showToast("Not enough coins.");
+                return;
+            }
+            if (res.status === 409) {
+                const body = await res.json().catch(() => ({}));
+                if (body.error === "too_tired") showToast("Too tired for fetch.");
+                else if (body.error === "not_sick") showToast("Pet is not sick.");
+                else showToast("Can't do that right now.");
                 return;
             }
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -277,6 +328,85 @@
     });
 
     healBtn.addEventListener("click", () => performAction(healUrl, healBtn, "heal"));
+    medicineBtn.addEventListener("click", () => performAction(medicineUrl, medicineBtn, "medicine"));
+
+    /* ---------- Color picker ---------- */
+    document.querySelectorAll(".swatch").forEach(swatch => {
+        swatch.addEventListener("click", async () => {
+            const color = swatch.dataset.color;
+            try {
+                const res = await fetch(recolorUrl, {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: {
+                        "X-CSRFToken": csrfToken,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ color }),
+                });
+                if (res.ok) render(await res.json());
+                else if (res.status === 429) showToast("Too many color changes.");
+            } catch (err) {
+                console.error(err);
+            }
+        });
+    });
+
+    /* ---------- Achievements ---------- */
+    async function fetchAchievements() {
+        try {
+            const res = await fetch(achievementsUrl, { credentials: "same-origin" });
+            if (!res.ok) return;
+            const data = await res.json();
+            renderAchievements(data.achievements || []);
+        } catch (err) {
+            console.warn("achievements fetch failed", err);
+        }
+    }
+
+    function renderAchievements(list) {
+        if (!achievementList) return;
+        achievementList.innerHTML = list.map(a => `
+            <li class="${a.unlocked ? "unlocked" : ""}" title="${a.description}">
+                <span class="ach-icon">${a.icon}</span>
+                <span><span class="ach-name">${a.name}</span><span class="ach-desc">${a.description}</span></span>
+            </li>
+        `).join("");
+    }
+
+    /* ---------- Browser notifications for low stats ---------- */
+    // Only fire once per stat-becomes-low transition, not every poll.
+    const NOTIFY_THRESHOLD = 20;
+    function maybeNotify(state) {
+        if (!("Notification" in window)) return;
+        if (Notification.permission !== "granted") return;
+        if (!lastState || !state.is_alive) return;
+        const stats = ["hunger", "happiness", "energy"];
+        for (const k of stats) {
+            if (state[k] < NOTIFY_THRESHOLD && lastState[k] >= NOTIFY_THRESHOLD) {
+                const labels = { hunger: "hungry", happiness: "bored", energy: "sleepy" };
+                new Notification(`${state.name} is ${labels[k]}`, {
+                    body: "Drop in and check on your pet.",
+                    icon: "/static/favicon.svg",
+                    tag: `nosypet-${k}`,
+                });
+            }
+        }
+    }
+
+    // Ask once, after first user interaction, so we are not blocked
+    // by the autoplay-style permission heuristics.
+    let askedNotify = false;
+    function askNotifyOnce() {
+        if (askedNotify) return;
+        askedNotify = true;
+        if ("Notification" in window && Notification.permission === "default") {
+            Notification.requestPermission().catch(() => {});
+        }
+    }
+    document.querySelectorAll(".action-btn").forEach(btn => {
+        btn.addEventListener("click", askNotifyOnce, { once: true });
+    });
 
     /* ---------- Rename dialog ---------- */
     const dialog = document.getElementById("rename-dialog");
@@ -322,5 +452,11 @@
 
     /* ---------- Boot ---------- */
     fetchState();
+    fetchAchievements();
     startPolling();
+
+    // Register PWA service worker if available.
+    if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
 })();

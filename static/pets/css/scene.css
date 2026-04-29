@@ -162,6 +162,25 @@
 .creature.teen   { --stage-scale: 0.92; }
 .creature.adult  { --stage-scale: 1.0; }
 
+/* Color variants: hue-rotate on the body group recolors the entire
+   pet from the same SVG. The egg form keeps its natural color. */
+.creature .body-group { transition: filter 0.4s ease; }
+.creature.color-pink     .body-group { filter: hue-rotate(0deg); }
+.creature.color-blue     .body-group { filter: hue-rotate(180deg) saturate(0.9); }
+.creature.color-mint     .body-group { filter: hue-rotate(110deg) saturate(0.7); }
+.creature.color-lavender .body-group { filter: hue-rotate(60deg) saturate(0.85); }
+.creature.color-gold     .body-group { filter: hue-rotate(-40deg) saturate(1.1) brightness(1.05); }
+
+/* Sickness: green tint and a wobble. */
+.creature.sick .body-group {
+    filter: hue-rotate(80deg) saturate(0.6) brightness(0.9);
+    animation: sickWobble 2.4s ease-in-out infinite;
+}
+@keyframes sickWobble {
+    0%, 100% { transform: rotate(-1deg); }
+    50%      { transform: rotate(1deg); }
+}
+
 /* === Egg / body visibility === */
 .creature .egg-group { display: none; }
 .creature .body-group { display: block; }

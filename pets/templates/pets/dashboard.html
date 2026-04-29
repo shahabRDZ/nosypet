@@ -11,7 +11,10 @@
 <section class="card dashboard"
          data-state-url="{% url 'pets:api_state' %}"
          data-rename-url="{% url 'pets:api_rename' %}"
-         data-heal-url="{% url 'pets:api_heal' %}">
+         data-heal-url="{% url 'pets:api_heal' %}"
+         data-medicine-url="{% url 'pets:api_medicine' %}"
+         data-recolor-url="{% url 'pets:api_recolor' %}"
+         data-achievements-url="{% url 'pets:api_achievements' %}">
     <header class="dashboard-head">
         <div>
             <h1>
@@ -78,11 +81,31 @@
         <button class="action-btn" data-action="{% url 'pets:api_feed' %}" data-action-name="feed" aria-label="Feed your pet">🍔<span>Feed</span></button>
         <button class="action-btn" data-action="{% url 'pets:api_play' %}" data-action-name="play" aria-label="Play with your pet">🎾<span>Play</span></button>
         <button class="action-btn" data-action="{% url 'pets:api_sleep' %}" data-action-name="sleep" aria-label="Let your pet sleep">💤<span>Sleep</span></button>
+        <button class="action-btn" data-action="{% url 'pets:api_fetch' %}" data-action-name="fetch" aria-label="Play fetch with your pet">🥏<span>Fetch</span></button>
     </div>
 
     <button class="heal-btn" id="heal-btn" hidden aria-label="Revive your pet">
         ✨ Heal · 🪙 <span data-bind="heal_cost">20</span>
     </button>
+    <button class="heal-btn medicine-btn" id="medicine-btn" hidden aria-label="Cure your pet">
+        💊 Medicine · 🪙 <span data-bind="medicine_cost">8</span>
+    </button>
+
+    <details class="customize">
+        <summary>Customize</summary>
+        <div class="color-picker" role="radiogroup" aria-label="Pet color">
+            <button type="button" class="swatch swatch-pink"     data-color="pink"     aria-label="Pink"></button>
+            <button type="button" class="swatch swatch-blue"     data-color="blue"     aria-label="Blue"></button>
+            <button type="button" class="swatch swatch-mint"     data-color="mint"     aria-label="Mint"></button>
+            <button type="button" class="swatch swatch-lavender" data-color="lavender" aria-label="Lavender"></button>
+            <button type="button" class="swatch swatch-gold"     data-color="gold"     aria-label="Gold"></button>
+        </div>
+    </details>
+
+    <section class="achievements" aria-label="Achievements">
+        <h2>Achievements</h2>
+        <ul class="achievement-list" id="achievement-list"></ul>
+    </section>
 </section>
 
 <dialog class="rename-dialog" id="rename-dialog" aria-label="Rename your pet">

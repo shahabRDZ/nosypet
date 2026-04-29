@@ -6,11 +6,21 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from pets.models import HEAL_COST, Pet, PetActionLog
+from pets.models import (
+    HEAL_COST,
+    MEDICINE_COST,
+    AchievementUnlock,
+    Pet,
+    PetActionLog,
+)
 from pets.services import (
     InsufficientCoins,
+    InvalidColor,
     InvalidName,
+    NotSick,
     PetService,
+    TooTired,
+    list_achievements,
 )
 
 
@@ -72,7 +82,8 @@ class PetServiceTests(TestCase):
         pet = PetService.feed(self.user)
         self.assertEqual(pet.hunger, 65)
         self.assertEqual(pet.xp, 8)
-        self.assertEqual(pet.coins, 11)
+        # 10 starting + 1 for feed + 5 from First Bite achievement = 16
+        self.assertEqual(pet.coins, 16)
         self.assertEqual(
             PetActionLog.objects.filter(pet=pet, action="feed").count(), 1
         )
@@ -200,6 +211,118 @@ class ApiTests(TestCase):
         self.user.pet.save()
         res = self.client.post(reverse("pets:api_heal"))
         self.assertEqual(res.status_code, 402)
+
+
+class FetchTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="fetch_u", password="pw")
+
+    def test_fetch_consumes_energy_and_rewards(self):
+        pet = PetService.fetch(self.user)
+        self.assertEqual(pet.energy, 70)
+        self.assertEqual(pet.happiness, 95)
+        # Starting coins 10 + 5 fetch reward = 15 (no achievement yet).
+        self.assertEqual(pet.coins, 15)
+        self.assertEqual(pet.xp, 14)
+
+    def test_fetch_refused_when_too_tired(self):
+        p = self.user.pet
+        p.energy = 5
+        p.save()
+        with self.assertRaises(TooTired):
+            PetService.fetch(self.user)
+
+
+class SicknessTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="sick_u", password="pw")
+
+    def test_decay_marks_neglected_pet_sick(self):
+        p = self.user.pet
+        p.hunger = 10
+        p.happiness = 10
+        p.energy = 10
+        p.last_decay_at = timezone.now() - timedelta(minutes=2)
+        p.save()
+        p.refresh_from_db()
+        p.apply_decay()
+        self.assertTrue(p.is_sick)
+
+    def test_medicine_cures_sickness(self):
+        p = self.user.pet
+        p.is_sick = True
+        p.coins = MEDICINE_COST + 2
+        p.save()
+        pet = PetService.medicine(self.user)
+        self.assertFalse(pet.is_sick)
+        self.assertEqual(pet.coins, 2)
+
+    def test_medicine_requires_sickness(self):
+        with self.assertRaises(NotSick):
+            PetService.medicine(self.user)
+
+    def test_medicine_requires_coins(self):
+        p = self.user.pet
+        p.is_sick = True
+        p.coins = 0
+        p.save()
+        with self.assertRaises(InsufficientCoins):
+            PetService.medicine(self.user)
+
+
+class ColorTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="color_u", password="pw")
+
+    def test_recolor_sets_color(self):
+        pet = PetService.recolor(self.user, Pet.COLOR_BLUE)
+        self.assertEqual(pet.color, Pet.COLOR_BLUE)
+
+    def test_recolor_rejects_unknown(self):
+        with self.assertRaises(InvalidColor):
+            PetService.recolor(self.user, "rainbow")
+
+
+class AchievementTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="ach_u", password="pw")
+
+    def test_first_feed_unlocks_first_bite(self):
+        pet = PetService.feed(self.user)
+        self.assertTrue(
+            AchievementUnlock.objects.filter(pet=pet, slug="first_bite").exists()
+        )
+        self.assertTrue(any(a.get("slug") == "first_bite" for a in pet._new_unlocks))
+
+    def test_unlock_grants_coins_once(self):
+        # Two feeds: first should unlock + reward, second should not.
+        pet1 = PetService.feed(self.user)
+        coins_after_first = pet1.coins
+        pet2 = PetService.feed(self.user)
+        # Only the +1 feed coin gain on the second call.
+        self.assertEqual(pet2.coins, coins_after_first + 1)
+
+    def test_list_achievements_marks_unlocked(self):
+        PetService.feed(self.user)
+        items = list_achievements(self.user.pet)
+        first = next(a for a in items if a["slug"] == "first_bite")
+        self.assertTrue(first["unlocked"])
+        other = next(a for a in items if a["slug"] == "best_friend")
+        self.assertFalse(other["unlocked"])
+
+
+class PWATests(TestCase):
+    def test_manifest_served(self):
+        res = self.client.get("/manifest.webmanifest")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res["Content-Type"], "application/manifest+json")
+        self.assertIn(b'"name"', res.content)
+
+    def test_service_worker_served(self):
+        res = self.client.get("/sw.js")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("javascript", res["Content-Type"])
+        self.assertEqual(res["Service-Worker-Allowed"], "/")
 
 
 @override_settings(RATELIMIT_ENABLE=True)

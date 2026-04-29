@@ -2,7 +2,7 @@
 The creature SVG. Classed groups make every body part animatable.
 Stage class on the wrapper switches between egg / baby / teen / adult.
 {% endcomment %}
-<svg class="creature {{ pet.stage }}" viewBox="0 0 220 260" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<svg class="creature {{ pet.stage }} color-{{ pet.color }}" viewBox="0 0 220 260" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <defs>
         <radialGradient id="bodyGrad" cx="40%" cy="35%" r="75%">
             <stop offset="0%" stop-color="#ffd6e8"/>

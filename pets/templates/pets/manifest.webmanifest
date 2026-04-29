@@ -1,0 +1,19 @@
+{% load static %}{
+  "name": "NosyPet",
+  "short_name": "NosyPet",
+  "description": "A virtual pet you can feed, play with, and watch grow.",
+  "start_url": "/dashboard/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#1a1230",
+  "theme_color": "#ff9bc6",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "{% static 'favicon.svg' %}",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -13,4 +13,8 @@ urlpatterns = [
     path("api/pet/sleep/", api.sleep, name="api_sleep"),
     path("api/pet/heal/", api.heal, name="api_heal"),
     path("api/pet/rename/", api.rename, name="api_rename"),
+    path("api/pet/fetch/", api.fetch, name="api_fetch"),
+    path("api/pet/medicine/", api.medicine, name="api_medicine"),
+    path("api/pet/recolor/", api.recolor, name="api_recolor"),
+    path("api/pet/achievements/", api.achievements, name="api_achievements"),
 ]

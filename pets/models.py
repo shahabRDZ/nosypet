@@ -16,6 +16,14 @@ DECAY_PER_MINUTE = {
 # afford a heal, making it a meaningful safety net rather than free.
 HEAL_COST = 20
 
+# Cost to cure sickness. Lower than HEAL_COST because medicine only
+# clears the debuff flag — it does not also top up stats.
+MEDICINE_COST = 8
+
+# Stats below this average for a full decay tick mark the pet as sick.
+# Picked so neglect (not just one missed feed) is what triggers it.
+SICKNESS_THRESHOLD = 25
+
 
 class Pet(models.Model):
     """A virtual pet owned by a user. Stats range 0 to 100 (higher is better)."""
@@ -31,6 +39,19 @@ class Pet(models.Model):
         (STAGE_BABY, "Baby"),
         (STAGE_TEEN, "Teen"),
         (STAGE_ADULT, "Adult"),
+    ]
+
+    COLOR_PINK = "pink"
+    COLOR_BLUE = "blue"
+    COLOR_MINT = "mint"
+    COLOR_LAVENDER = "lavender"
+    COLOR_GOLD = "gold"
+    COLOR_CHOICES = [
+        (COLOR_PINK, "Pink"),
+        (COLOR_BLUE, "Blue"),
+        (COLOR_MINT, "Mint"),
+        (COLOR_LAVENDER, "Lavender"),
+        (COLOR_GOLD, "Gold"),
     ]
 
     # Level threshold for moving up a life stage.
@@ -56,6 +77,8 @@ class Pet(models.Model):
     xp = models.PositiveIntegerField(default=0)
     coins = models.PositiveIntegerField(default=10)
     stage = models.CharField(max_length=10, choices=STAGE_CHOICES, default=STAGE_EGG)
+    color = models.CharField(max_length=10, choices=COLOR_CHOICES, default=COLOR_PINK)
+    is_sick = models.BooleanField(default=False)
 
     last_decay_at = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -128,6 +151,14 @@ class Pet(models.Model):
 
         if any_changed:
             self.last_decay_at = now
+            # Becoming sick is sticky — only cured by medicine, not by
+            # stat recovery — so we only set the flag here, never clear.
+            if (
+                not self.is_sick
+                and self.is_alive
+                and self.overall_score < SICKNESS_THRESHOLD
+            ):
+                self.is_sick = True
             if save:
                 self.save()
 
@@ -141,12 +172,18 @@ class PetActionLog(models.Model):
     ACTION_SLEEP = "sleep"
     ACTION_HEAL = "heal"
     ACTION_RENAME = "rename"
+    ACTION_FETCH = "fetch"
+    ACTION_MEDICINE = "medicine"
+    ACTION_RECOLOR = "recolor"
     ACTION_CHOICES = [
         (ACTION_FEED, "Feed"),
         (ACTION_PLAY, "Play"),
         (ACTION_SLEEP, "Sleep"),
         (ACTION_HEAL, "Heal"),
         (ACTION_RENAME, "Rename"),
+        (ACTION_FETCH, "Fetch"),
+        (ACTION_MEDICINE, "Medicine"),
+        (ACTION_RECOLOR, "Recolor"),
     ]
 
     pet = models.ForeignKey(Pet, on_delete=models.CASCADE, related_name="actions")
@@ -160,3 +197,45 @@ class PetActionLog(models.Model):
 
     def __str__(self):
         return f"{self.pet.name} · {self.action} @ {self.created_at:%Y-%m-%d %H:%M}"
+
+
+# Achievements are static — defined in code, not in admin — so we keep
+# them as a list of dicts rather than another DB table. The unlock row
+# alone is enough to track per-pet progress.
+ACHIEVEMENTS = [
+    {
+        "slug": "first_bite",
+        "name": "First Bite",
+        "description": "Feed your pet for the first time.",
+        "icon": "🍔",
+        "reward_coins": 5,
+    },
+    {
+        "slug": "best_friend",
+        "name": "Best Friend",
+        "description": "Play with your pet 10 times.",
+        "icon": "🎾",
+        "reward_coins": 15,
+    },
+    {
+        "slug": "sweet_dreams",
+        "name": "Sweet Dreams",
+        "description": "Tuck your pet in to sleep 10 times.",
+        "icon": "💤",
+        "reward_coins": 10,
+    },
+]
+ACHIEVEMENT_BY_SLUG = {a["slug"]: a for a in ACHIEVEMENTS}
+
+
+class AchievementUnlock(models.Model):
+    pet = models.ForeignKey(Pet, on_delete=models.CASCADE, related_name="unlocks")
+    slug = models.CharField(max_length=40)
+    unlocked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("pet", "slug")]
+        ordering = ["-unlocked_at"]
+
+    def __str__(self):
+        return f"{self.pet.name} unlocked {self.slug}"
